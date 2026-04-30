@@ -1,0 +1,9 @@
+{
+  "name": "ijsvogel-dashboard",
+  "version": "1.0.0",
+  "description": "Live dashboard for IJsvogel (Common Kingfisher) sightings in the Netherlands",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}
