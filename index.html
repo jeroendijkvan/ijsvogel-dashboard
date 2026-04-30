@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IJsvogel Dashboard â Vogelobservaties Nederland</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <style>
+    /* ââ Design tokens âââââââââââââââââââââââââââââââ */
+    :root {
+      --teal:    #0d9488;
+      --teal-lt: #99f6e4;
+      --teal-dk: #0f766e;
+      --amber:   #f59e0b;
+      --sky:     #0ea5e9;
+      --bg:      #f0fdf9;
+      --card:    #ffffff;
+      --border:  #ccfbf1;
+      --text:    #134e4a;
+      --muted:   #5eead4;
+      --shadow:  0 4px 24px rgba(13,148,136,.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ââ Header âââââââââââââââââââââââââââââââââââââ */
+    header {
+      background: linear-gradient(135deg, var(--teal-dk) 0%, var(--teal) 60%, #0891b2 100%);
+      color: #fff;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 12px rgba(13,148,136,.35);
+    }
+    .header-icon { font-size: 2.5rem; line-height: 1; }
+    header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+    header p  { font-size: 0.85rem; opacity: .8; margin-top: .15rem; }
+    .header-meta { margin-left: auto; text-align: right; font-size: .82rem; opacity: .85; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: .35rem;
+      background: rgba(255,255,255,.18); border-radius: 999px;
+      padding: .2rem .7rem; font-size: .78rem; font-weight: 600; margin-bottom: .3rem;
+    }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #86efac; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* ââ Layout âââââââââââââââââââââââââââââââââââââ */
+    .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; }
+
+    /* ââ Stat cards âââââââââââââââââââââââââââââââââ */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.1rem 1.3rem;
+      box-shadow: var(--shadow); display: flex; flex-direction: column; gap: .25rem;
+    }
+    .stat-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .stat-value { font-size: 2rem; font-weight: 800; color: var(--text); line-height: 1.1; }
+    .stat-sub   { font-size: .78rem; color: #64748b; }
+    .stat-card.accent { background: var(--teal); border-color: var(--teal-dk); }
+    .stat-card.accent .stat-label { color: #99f6e4; }
+    .stat-card.accent .stat-value { color: #fff; }
+    .stat-card.accent .stat-sub   { color: #ccfbf1; }
+
+    /* ââ Main grid ââââââââââââââââââââââââââââââââââ */
+    .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.25rem; margin-bottom: 1.25rem; }
+    @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* ââ Card shared ââââââââââââââââââââââââââââââââ */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: .82rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--teal-dk); margin-bottom: 1rem;
+      display: flex; align-items: center; gap: .45rem;
+    }
+
+    /* ââ Map ââââââââââââââââââââââââââââââââââââââââ */
+    #map { height: 480px; border-radius: 10px; z-index: 1; }
+
+    /* ââ Top locations table ââââââââââââââââââââââââ */
+    .locations-list { max-height: 480px; overflow-y: auto; }
+    .loc-row {
+      display: flex; align-items: center; gap: .7rem;
+      padding: .6rem .5rem; border-radius: 8px; cursor: pointer;
+      transition: background .15s;
+    }
+    .loc-row:hover { background: var(--bg); }
+    .loc-rank {
+      width: 22px; height: 22px; border-radius: 50%; background: var(--teal);
+      color: #fff; font-size: .7rem; font-weight: 800; display: flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .loc-rank.gold   { background: #f59e0b; }
+    .loc-rank.silver { background: #94a3b8; }
+    .loc-rank.bronze { background: #b45309; }
+    .loc-name { font-size: .85rem; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .loc-count { font-size: .82rem; font-weight: 700; color: var(--teal); flex-shrink: 0; }
+    .loc-bar-wrap { height: 4px; background: var(--bg); border-radius: 99px; margin-top: .2rem; }
+    .loc-bar { height: 4px; background: var(--teal); border-radius: 99px; transition: width .5s; }
+
+    /* ââ Charts grid ââââââââââââââââââââââââââââââââ */
+    .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-wrap { height: 220px; position: relative; }
+
+    /* ââ Tips section âââââââââââââââââââââââââââââââ */
+    .tips-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+    .tip-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.1rem 1.25rem; box-shadow: var(--shadow);
+    }
+    .tip-icon { font-size: 1.5rem; margin-bottom: .5rem; }
+    .tip-title { font-size: .88rem; font-weight: 700; color: var(--teal-dk); margin-bottom: .4rem; }
+    .tip-text  { font-size: .82rem; color: #475569; line-height: 1.5; }
+    .tip-highlight { font-weight: 700; color: var(--teal); }
+
+    /* ââ Loading overlay ââââââââââââââââââââââââââââ */
+    #loading {
+      position: fixed; inset: 0; background: rgba(240,253,250,.92);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1rem; z-index: 9999;
+    }
+    .spinner {
+      width: 48px; height: 48px; border: 4px solid var(--border);
+      border-top-color: var(--teal); border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: var(--teal-dk); font-weight: 600; font-size: .95rem; }
+
+    /* ââ Error ââââââââââââââââââââââââââââââââââââââ */
+    #error-msg { display: none; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; color: #dc2626; }
+
+    /* ââ Leaflet popup tweak ââââââââââââââââââââââââ */
+    .leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 16px rgba(0,0,0,.15) !important; }
+    .obs-popup { font-family: 'Segoe UI', system-ui, sans-serif; font-size: .83rem; min-width: 180px; }
+    .obs-popup strong { color: var(--teal-dk); }
+    .obs-popup a { color: var(--sky); text-decoration: none; }
+    .obs-popup a:hover { text-decoration: underline; }
+
+    /* ââ Scrollbar ââââââââââââââââââââââââââââââââââ */
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 99px; }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner"></div>
+  <p>IJsvogel-waarnemingen ophalenâ¦</p>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-icon">ð¦</div>
+  <div>
+    <h1>IJsvogel Dashboard</h1>
+    <p>Common Kingfisher Â· <em>Alcedo atthis</em> Â· Nederland</p>
+  </div>
+  <div class="header-meta">
+    <div class="live-badge"><span class="live-dot"></span>Live data</div>
+    <div id="date-range">Afgelopen 30 dagen</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Error -->
+  <div id="error-msg">â ï¸ <span id="error-text"></span></div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card accent">
+      <span class="stat-label">Waarnemingen</span>
+      <span class="stat-value" id="stat-obs">â</span>
+      <span class="stat-sub">in de afgelopen 30 dagen</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Aantal IJsvogels</span>
+      <span class="stat-value" id="stat-birds">â</span>
+      <span class="stat-sub">totaal geteld</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Locaties</span>
+      <span class="stat-value" id="stat-locs">â</span>
+      <span class="stat-sub">unieke plekken</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Drukste dag</span>
+      <span class="stat-value" id="stat-peak-count">â</span>
+      <span class="stat-sub" id="stat-peak-date">waarnemingen</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Beste plek</span>
+      <span class="stat-value" style="font-size:1.1rem;line-height:1.3" id="stat-best">â</span>
+      <span class="stat-sub" id="stat-best-count"></span>
+    </div>
+  </div>
+
+  <!-- Map + Locations -->
+  <div class="main-grid">
+    <div class="card">
+      <div class="card-title">ðºï¸ Kaart â waarnemingen per locatie</div>
+      <div id="map"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">ð Top locaties</div>
+      <div class="locations-list" id="locations-list"></div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-title">ð Waarnemingen per dag</div>
+      <div class="chart-wrap"><canvas id="chart-timeline"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">ð Tijdstip van de dag</div>
+      <div class="chart-wrap"><canvas id="chart-hour"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Tips -->
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-title">ð¡ Tips â IJsvogel spotten</div>
+    <div class="tips-grid" id="tips-grid">
+      <!-- Filled dynamically -->
+    </div>
+  </div>
+
+  <!-- Recent observations table -->
+  <div class="card">
+    <div class="card-title">ð Recente waarnemingen</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--teal-dk);font-weight:700">Datum &amp; tijd</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--teal-dk);font-weight:700">Locatie</th>
+            <th style="text-align:center;padding:.5rem .75rem;color:var(--teal-dk);font-weight:700"># Vogels</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--teal-dk);font-weight:700">Waarnemer</th>
+            <th style="text-align:left;padding:.5rem .75rem;color:var(--teal-dk);font-weight:700">Notities</th>
+          </tr>
+        </thead>
+        <tbody id="obs-table-body"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:.75rem;font-size:.78rem;color:#94a3b8;text-align:right">
+      Bron: <a href="https://observation.org/species/37/observations/" target="_blank" style="color:var(--sky)">observation.org</a>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// âââ Utilities âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+const $ = (sel) => document.querySelector(sel);
+const fmt = (d) => {
+  const [y, m, day] = d.split('-');
+  return `${day}-${m}-${y}`;
+};
+
+// âââ Colour scale for circle markers ââââââââââââââââââââââââââââââââââââââââ
+function markerColor(count) {
+  if (count >= 5) return '#f59e0b';
+  if (count >= 3) return '#0d9488';
+  return '#0ea5e9';
+}
+function markerRadius(count) {
+  return Math.min(6 + count * 2, 22);
+}
+
+// âââ Map init âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+const map = L.map('map', { center: [52.2, 5.3], zoom: 7.5 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://carto.com/">Carto</a> | Â© OpenStreetMap contributors',
+  maxZoom: 18,
+}).addTo(map);
+
+// Legend
+const legend = L.control({ position: 'bottomright' });
+legend.onAdd = () => {
+  const d = L.DomUtil.create('div', '');
+  d.style.cssText = 'background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px;line-height:1.7';
+  d.innerHTML = `
+    <b style="color:#134e4a">Aantal IJsvogels</b><br>
+    <span style="color:#0ea5e9">â</span> 1â2&nbsp;&nbsp;
+    <span style="color:#0d9488">â</span> 3â4&nbsp;&nbsp;
+    <span style="color:#f59e0b">â</span> 5+
+  `;
+  return d;
+};
+legend.addTo(map);
+
+// âââ Chart instances âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+let timelineChart, hourChart;
+
+// âââ Main data load ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+async function loadData() {
+  try {
+    // Compute 30-day window
+    const today = new Date();
+    const ago30 = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const p = (n) => String(n).padStart(2, '0');
+    const fmtISO = (d) => `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+    const dateAfter  = fmtISO(ago30);
+    const dateBefore = fmtISO(today);
+
+    const resp = await fetch(`/api/observations?date_after=${dateAfter}&date_before=${dateBefore}`);
+    if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Unknown error');
+
+    $('#loading').style.display = 'none';
+    $('#date-range').textContent = `${fmt(dateAfter)} â ${fmt(dateBefore)}`;
+
+    render(data.observations, dateAfter, dateBefore);
+  } catch (err) {
+    $('#loading').style.display = 'none';
+    $('#error-msg').style.display = 'block';
+    $('#error-text').textContent = `Kon geen data laden: ${err.message}. Probeer de pagina te vernieuwen.`;
+  }
+}
+
+// âââ Render everything ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+function render(obs, dateAfter, dateBefore) {
+  if (!obs || obs.length === 0) {
+    $('#error-msg').style.display = 'block';
+    $('#error-text').textContent = 'Geen waarnemingen gevonden voor deze periode.';
+    return;
+  }
+
+  // ââ Aggregations ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const totalBirds = obs.reduce((s, o) => s + (o.number || 1), 0);
+
+  // By location
+  const locMap = {};
+  obs.forEach((o) => {
+    const key = o.location || o.location_id || 'Onbekend';
+    if (!locMap[key]) locMap[key] = { name: o.location, count: 0, obs: [], lat: o.lat, lng: o.lng };
+    locMap[key].count += (o.number || 1);
+    locMap[key].obs.push(o);
+    // Keep most recent valid coords
+    if (o.lat && o.lng && !locMap[key].lat) {
+      locMap[key].lat = o.lat; locMap[key].lng = o.lng;
+    }
+  });
+  const locations = Object.values(locMap).sort((a, b) => b.count - a.count);
+  const uniqueLocs = locations.length;
+
+  // By date
+  const dayMap = {};
+  obs.forEach((o) => {
+    dayMap[o.date] = (dayMap[o.date] || 0) + 1;
+  });
+  const days = Object.keys(dayMap).sort();
+  const peakDay = days.reduce((a, b) => dayMap[a] > dayMap[b] ? a : b, days[0]);
+  const peakCount = dayMap[peakDay];
+
+  // By hour
+  const hourMap = {};
+  obs.forEach((o) => {
+    const h = o.time ? parseInt(o.time.split(':')[0]) : null;
+    if (h !== null) hourMap[h] = (hourMap[h] || 0) + 1;
+  });
+
+  // ââ Stats cards ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  $('#stat-obs').textContent   = obs.length.toLocaleString('nl-NL');
+  $('#stat-birds').textContent = totalBirds.toLocaleString('nl-NL');
+  $('#stat-locs').textContent  = uniqueLocs.toLocaleString('nl-NL');
+  $('#stat-peak-count').textContent = peakCount;
+  $('#stat-peak-date').textContent  = fmt(peakDay);
+  $('#stat-best').textContent = locations[0]?.name?.split(' - ')[0] || 'â';
+  $('#stat-best-count').textContent = `${locations[0]?.count || 0} vogels`;
+
+  // ââ Map markers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const markerLayer = L.layerGroup().addTo(map);
+  const bounds = [];
+
+  locations.forEach((loc) => {
+    if (!loc.lat || !loc.lng) return;
+    bounds.push([loc.lat, loc.lng]);
+    const circle = L.circleMarker([loc.lat, loc.lng], {
+      radius: markerRadius(loc.count),
+      fillColor: markerColor(loc.count),
+      color: '#fff',
+      weight: 1.5,
+      opacity: 1,
+      fillOpacity: 0.82,
+    });
+
+    const recentObs = loc.obs.slice(0, 3);
+    const popupHtml = `
+      <div class="obs-popup">
+        <strong>${loc.name}</strong><br>
+        <b>${loc.count}</b> IJsvogel${loc.count !== 1 ? 's' : ''} gesignaleerd<br>
+        <b>${loc.obs.length}</b> waarneming${loc.obs.length !== 1 ? 'en' : ''}<br>
+        <hr style="margin:.4rem 0;border:none;border-top:1px solid #e2e8f0">
+        <b>Recent:</b><br>
+        ${recentObs.map(o => `
+          ${fmt(o.date)}${o.time ? ' ' + o.time.substring(0,5) : ''} â ${o.number} ex.
+          ${o.permalink ? `<a href="${o.permalink}" target="_blank">â</a>` : ''}
+        `).join('<br>')}
+      </div>
+    `;
+    circle.bindPopup(popupHtml);
+    markerLayer.addLayer(circle);
+  });
+
+  if (bounds.length > 0) {
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
+  }
+
+  // ââ Top locations list âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const maxCount = locations[0]?.count || 1;
+  const topN = locations.slice(0, 25);
+  const rankClasses = ['gold', 'silver', 'bronze'];
+  const listHtml = topN.map((loc, i) => {
+    const rc = rankClasses[i] || '';
+    const pct = Math.round((loc.count / maxCount) * 100);
+    return `
+      <div class="loc-row" onclick="flyTo(${loc.lat},${loc.lng},'${loc.name.replace(/'/g,"\\'")}',${loc.count})">
+        <div class="loc-rank ${rc}">${i + 1}</div>
+        <div style="flex:1;min-width:0">
+          <div class="loc-name" title="${loc.name}">${loc.name}</div>
+          <div class="loc-bar-wrap"><div class="loc-bar" style="width:${pct}%"></div></div>
+        </div>
+        <div class="loc-count">${loc.count} ð¦</div>
+      </div>
+    `;
+  }).join('');
+  $('#locations-list').innerHTML = listHtml;
+
+  // ââ Timeline chart âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const allDates = [];
+  const d = new Date(dateAfter);
+  const end = new Date(dateBefore);
+  while (d <= end) {
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    allDates.push(key);
+    d.setDate(d.getDate() + 1);
+  }
+
+  if (timelineChart) timelineChart.destroy();
+  timelineChart = new Chart($('#chart-timeline'), {
+    type: 'bar',
+    data: {
+      labels: allDates.map(fmt),
+      datasets: [{
+        label: 'Waarnemingen',
+        data: allDates.map((d) => dayMap[d] || 0),
+        backgroundColor: allDates.map((d) =>
+          d === peakDay ? '#f59e0b' : 'rgba(13,148,136,0.65)'
+        ),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        title: (items) => items[0].label,
+        label: (item) => ` ${item.raw} waarneming${item.raw !== 1 ? 'en' : ''}`,
+      }}},
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#f0fdf9' } },
+      }
+    }
+  });
+
+  // ââ Hour distribution chart ââââââââââââââââââââââââââââââââââââââââââââââââ
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  if (hourChart) hourChart.destroy();
+  hourChart = new Chart($('#chart-hour'), {
+    type: 'bar',
+    data: {
+      labels: hours.map((h) => `${String(h).padStart(2,'0')}:00`),
+      datasets: [{
+        label: 'Waarnemingen',
+        data: hours.map((h) => hourMap[h] || 0),
+        backgroundColor: hours.map((h) =>
+          (h >= 6 && h <= 9) || (h >= 16 && h <= 19)
+            ? 'rgba(245,158,11,0.75)'
+            : 'rgba(14,165,233,0.55)'
+        ),
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: (item) => ` ${item.raw} waarneming${item.raw !== 1 ? 'en' : ''}`,
+      }}},
+      scales: {
+        x: { ticks: { maxTicksLimit: 8, font: { size: 9 } }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#f0fdf9' } },
+      }
+    }
+  });
+
+  // ââ Tips section âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const bestHour = Object.keys(hourMap).reduce((a, b) =>
+    (hourMap[a] || 0) > (hourMap[b] || 0) ? a : b, Object.keys(hourMap)[0]);
+  const bestLoc3 = locations.slice(0, 3).map(l => l.name.split(' - ')[0]).join(', ');
+
+  $('#tips-grid').innerHTML = `
+    <div class="tip-card">
+      <div class="tip-icon">ðºï¸</div>
+      <div class="tip-title">Beste locaties nu</div>
+      <div class="tip-text">De afgelopen 30 dagen zijn de meeste IJsvogels gezien bij <span class="tip-highlight">${bestLoc3}</span>. Probeer deze plekken als eerste!</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">â°</div>
+      <div class="tip-title">Beste tijd van de dag</div>
+      <div class="tip-text">De meeste waarnemingen vallen rond <span class="tip-highlight">${bestHour}:00 uur</span>. Oranje balken in de tijdgrafiek tonen piekuren (ochtend & avond). Plan je uitstapje vroeg of laat in de middag.</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">ð§</div>
+      <div class="tip-title">Zoek rustig, helder water</div>
+      <div class="tip-text">IJsvogels prefereren <span class="tip-highlight">rustige sloten, beken en kleine rivieren</span> met helder water en uitstekende takjes. Zoek naar waterkanten met weinig mensen en overhangende begroeiing.</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">ð¨</div>
+      <div class="tip-title">Herkennen</div>
+      <div class="tip-text">Let op een <span class="tip-highlight">felblauwe rug en oranje borst</span>. In vlucht zie je een snelle, rechte lijn laag over het water. Luister naar het hoge "piep" geluid als hij langsschiet.</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">ð¸</div>
+      <div class="tip-title">Fotografietip</div>
+      <div class="tip-text">Ga rustig zitten bij een <span class="tip-highlight">bekende uitkijkpost</span> (een tak boven water) en wacht. Gebruik minimaal <span class="tip-highlight">600mm equivalent</span> en snelle sluitertijden (1/1000s+).</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">ð</div>
+      <div class="tip-title">Statistieken nu</div>
+      <div class="tip-text">In de afgelopen 30 dagen zijn <span class="tip-highlight">${obs.length} waarnemingen</span> van in totaal <span class="tip-highlight">${totalBirds} IJsvogels</span> geregistreerd op <span class="tip-highlight">${uniqueLocs} locaties</span> in Nederland.</div>
+    </div>
+  `;
+
+  // ââ Recent table âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  const recent50 = obs.slice(0, 50);
+  $('#obs-table-body').innerHTML = recent50.map((o, i) => `
+    <tr style="border-bottom:1px solid var(--border);${i % 2 === 0 ? 'background:#f8fffd' : ''}">
+      <td style="padding:.45rem .75rem;white-space:nowrap">${fmt(o.date)} ${o.time ? o.time.substring(0,5) : ''}</td>
+      <td style="padding:.45rem .75rem">${o.location}</td>
+      <td style="padding:.45rem .75rem;text-align:center;font-weight:700;color:var(--teal)">${o.number}</td>
+      <td style="padding:.45rem .75rem">${o.observer}</td>
+      <td style="padding:.45rem .75rem;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.notes}">${o.notes || 'â'}</td>
+    </tr>
+  `).join('');
+}
+
+// âââ Fly to location âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+function flyTo(lat, lng, name, count) {
+  if (!lat || !lng) return;
+  map.flyTo([lat, lng], 13, { duration: 1 });
+}
+
+// âââ Boot ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+loadData();
+</script>
+</body>
+</html>
