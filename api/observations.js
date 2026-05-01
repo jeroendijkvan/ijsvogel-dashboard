@@ -1,15 +1,11 @@
 // Vercel serverless function — proxies observation.org API for IJsvogel (species 37)
 export default async function handler(req, res) {
-  // Allow CORS so the static frontend can call this
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   const today = new Date();
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-
   const pad = (n) => String(n).padStart(2, '0');
   const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
@@ -21,35 +17,56 @@ export default async function handler(req, res) {
     Accept: 'application/json',
     'User-Agent': 'IJsvogel-Dashboard/1.0',
   };
+  const PAGE_SIZE = 100;
+  const MAX_PAGES = 5; // 500 observations max — keeps function well under 10s
 
-  let allResults = [];
-  let nextUrl = `${BASE}?species=37&limit=100&country=NL&date_after=${dateAfter}&date_before=${dateBefore}`;
-  let pages = 0;
-  const MAX_PAGES = 15; // cap at 1500 observations
+  const fetchPage = async (url) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s per-request timeout
+    try {
+      const resp = await fetch(url, { headers: HEADERS, signal: controller.signal });
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      return await resp.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
 
   try {
-    while (nextUrl && pages < MAX_PAGES) {
-      const resp = await fetch(nextUrl, { headers: HEADERS });
-      if (!resp.ok) throw new Error(`API error ${resp.status}`);
-      const json = await resp.json();
-      allResults = allResults.concat(json.results || []);
-      nextUrl = json.next || null;
-      pages++;
+    // Fetch first page to learn total count
+    const firstUrl = `${BASE}?species=37&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}`;
+    const firstPage = await fetchPage(firstUrl);
+    let allResults = firstPage.results || [];
+
+    // Calculate how many additional pages exist (up to MAX_PAGES total)
+    const total = firstPage.count || 0;
+    const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
+
+    // Fetch remaining pages in parallel
+    if (totalPages > 1) {
+      const pageUrls = [];
+      for (let p = 2; p <= totalPages; p++) {
+        const offset = (p - 1) * PAGE_SIZE;
+        pageUrls.push(`${BASE}?species=37&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}&offset=${offset}`);
+      }
+      const pages = await Promise.all(pageUrls.map(fetchPage));
+      for (const page of pages) {
+        allResults = allResults.concat(page.results || []);
+      }
     }
 
-    // Return a slimmed-down payload — only what the frontend needs
     const slim = allResults.map((o) => ({
-      id:       o.id,
-      date:     o.date,
-      time:     o.time,
-      number:   o.number ?? 1,
-      lat:      o.point?.coordinates?.[1] ?? null,
-      lng:      o.point?.coordinates?.[0] ?? null,
-      location: o.location_detail?.name ?? 'Unknown',
+      id:          o.id,
+      date:        o.date,
+      time:        o.time,
+      number:      o.number ?? 1,
+      lat:         o.point?.coordinates?.[1] ?? null,
+      lng:         o.point?.coordinates?.[0] ?? null,
+      location:    o.location_detail?.name ?? 'Unknown',
       location_id: o.location,
-      notes:    o.notes ?? '',
-      permalink: o.permalink ?? '',
-      observer: o.user_detail?.name ?? 'Anonymous',
+      notes:       o.notes ?? '',
+      permalink:   o.permalink ?? '',
+      observer:    o.user_detail?.name ?? 'Anonymous',
     }));
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
