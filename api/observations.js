@@ -20,16 +20,11 @@ export default async function handler(req, res) {
   const PAGE_SIZE = 100;
   const MAX_PAGES = 3; // 300 observations max
 
+  // No AbortController — rely on Vercel maxDuration (30s in vercel.json)
   const fetchPage = async (url) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000); // 25s — vercel.json maxDuration is 30s
-    try {
-      const resp = await fetch(url, { headers: HEADERS, signal: controller.signal });
-      if (!resp.ok) throw new Error(`API error ${resp.status}`);
-      return await resp.json();
-    } finally {
-      clearTimeout(timeout);
-    }
+    const resp = await fetch(url, { headers: HEADERS });
+    if (!resp.ok) throw new Error(`API error ${resp.status}`);
+    return await resp.json();
   };
 
   try {
