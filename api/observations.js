@@ -28,10 +28,9 @@ export default async function handler(req, res) {
   };
 
   try {
-    // Use search=alcedo+atthis to correctly filter for IJsvogel (kingfisher).
-    // Note: the species=37 URL param is silently ignored by the API; the correct
-    // filter is a free-text search on scientific name via the `search` parameter.
-    const firstUrl = `${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}`;
+    // species_id=37 is an indexed filter for Alcedo atthis (IJsvogel / Common Kingfisher).
+    // This is faster than search=alcedo+atthis which does an expensive full-text scan.
+    const firstUrl = `${BASE}?species_id=37&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}`;
     const firstPage = await fetchPage(firstUrl);
     let allResults = firstPage.results || [];
 
@@ -44,7 +43,7 @@ export default async function handler(req, res) {
       const pageUrls = [];
       for (let p = 2; p <= totalPages; p++) {
         const offset = (p - 1) * PAGE_SIZE;
-        pageUrls.push(`${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}&offset=${offset}`);
+        pageUrls.push(`${BASE}?species_id=37&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}&offset=${offset}`);
       }
       const pages = await Promise.all(pageUrls.map(fetchPage));
       for (const page of pages) {
