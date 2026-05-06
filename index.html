@@ -343,7 +343,7 @@ async function loadData() {
       : `${fmt(dateAfter)} \u2013 ${fmt(dateBefore)}`;
     $('#date-range').textContent = rangeText;
 
-    render(data.observations, dateAfter, dateBefore);
+    render(data.observations, dateAfter, dateBefore, data.total || data.count);
   } catch (err) {
     $('#loading').style.display = 'none';
     $('#error-msg').style.display = 'block';
@@ -352,7 +352,8 @@ async function loadData() {
 }
 
 // --- Render everything --------------------------------------------------------
-function render(obs, dateAfter, dateBefore) {
+function render(obs, dateAfter, dateBefore, apiTotal) {
+  apiTotal = apiTotal || obs.length;
   if (!obs || obs.length === 0) {
     $('#error-msg').style.display = 'block';
     $('#error-text').textContent = 'Geen waarnemingen gevonden voor deze periode.';
@@ -397,8 +398,10 @@ function render(obs, dateAfter, dateBefore) {
   });
 
   // -- Stats cards ------------------------------------------------------------
-  $('#stat-obs').textContent   = obs.length.toLocaleString('nl-NL');
-  $('#stat-birds').textContent = totalBirds.toLocaleString('nl-NL');
+  // Scale bird count: if we only fetched a subset, extrapolate to the full total
+  const scaledBirds = obs.length > 0 ? Math.round(totalBirds * apiTotal / obs.length) : apiTotal;
+  $('#stat-obs').textContent   = apiTotal.toLocaleString('nl-NL');
+  $('#stat-birds').textContent = scaledBirds.toLocaleString('nl-NL');
   $('#stat-locs').textContent  = uniqueLocs.toLocaleString('nl-NL');
   $('#stat-peak-count').textContent = peakCount;
   $('#stat-peak-date').textContent  = fmt(peakDay);
@@ -457,7 +460,7 @@ function render(obs, dateAfter, dateBefore) {
           <div class="loc-name" title="${loc.name}">${loc.name}</div>
           <div class="loc-bar-wrap"><div class="loc-bar" style="width:${pct}%"></div></div>
         </div>
-        <div class="loc-count">${loc.count}&nbsp;vogels</div>
+        <div class="loc-count">${loc.count}&nbsp;vogels</span</div>
       </div>
     `;
   }).join('');
@@ -568,7 +571,7 @@ function render(obs, dateAfter, dateBefore) {
     <div class="tip-card">
       <div class="tip-icon">\uD83D\uDCCA</div>
       <div class="tip-title">Statistieken nu</div>
-      <div class="tip-text">In de afgelopen 30 dagen zijn <span class="tip-highlight">${obs.length} waarnemingen</span> van in totaal <span class="tip-highlight">${totalBirds} IJsvogels</span> geregistreerd op <span class="tip-highlight">${uniqueLocs} locaties</span> in Nederland.</div>
+      <div class="tip-text">In de afgelopen 30 dagen zijn <span class="tip-highlight">${apiTotal.toLocaleString('nl-NL')} waarnemingen</span> van in totaal <span class="tip-highlight">${scaledBirds.toLocaleString('nl-NL')} IJsvogels</span> geregistreerd op <span class="tip-highlight">${uniqueLocs} locaties</span> in Nederland.</div>
     </div>
   `;
 
