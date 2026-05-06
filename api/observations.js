@@ -18,8 +18,9 @@ export default async function handler(req, res) {
     'User-Agent': 'IJsvogel-Dashboard/1.0',
   };
   const PAGE_SIZE = 100;
-  // Chunk size: split the date range into CHUNK_DAYS-day windows fetched in parallel.
-  // A single-day query resolves in ~8s; chunking keeps each slice well under 30s.
+  // Split the 30-day window into 5-day parallel chunks.
+  // search=alcedo+atthis on a short date range resolves in ~8-10s;
+  // running them in parallel keeps total response well under 30s.
   const CHUNK_DAYS = 5;
 
   const fetchPage = async (url) => {
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
     const chunkResults = await Promise.all(
       chunks.map((c) =>
         fetchPage(
-          `${BASE}?species_id=37&limit=${PAGE_SIZE}&country=NL` +
+          `${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL` +
           `&date_after=${c.after}&date_before=${c.before}`
         )
       )
