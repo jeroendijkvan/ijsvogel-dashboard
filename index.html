@@ -211,7 +211,7 @@
     <div class="stat-card">
       <span class="stat-label">Drukste dag</span>
       <span class="stat-value" id="stat-peak-count">&#8212;</span>
-      <span class="stat-sub" id="stat-peak-date">waarnemingen</span>
+      <span class="stat-sub" id="stat-peak-date">vogels geteld</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Beste plek</span>
@@ -336,7 +336,12 @@ async function loadData() {
     if (!data.ok) throw new Error(data.error || 'Unknown error');
 
     $('#loading').style.display = 'none';
-    $('#date-range').textContent = `${fmt(dateAfter)} \u2013 ${fmt(dateBefore)}`;
+    // Show actual data range (may be shorter than 30 days due to API result limit)
+    const actualDates = [...new Set(data.observations.map(o => o.date))].sort();
+    const rangeText = actualDates.length > 1
+      ? `${fmt(actualDates[0])} \u2013 ${fmt(actualDates[actualDates.length - 1])}`
+      : `${fmt(dateAfter)} \u2013 ${fmt(dateBefore)}`;
+    $('#date-range').textContent = rangeText;
 
     render(data.observations, dateAfter, dateBefore);
   } catch (err) {
@@ -372,14 +377,17 @@ function render(obs, dateAfter, dateBefore) {
   const locations = Object.values(locMap).sort((a, b) => b.count - a.count);
   const uniqueLocs = locations.length;
 
-  // By date
-  const dayMap = {};
+  // By date (track both observation count and bird count)
+  const dayMap = {};    // number of sighting reports per day
+  const dayBirds = {};  // number of individual birds per day
   obs.forEach((o) => {
     dayMap[o.date] = (dayMap[o.date] || 0) + 1;
+    dayBirds[o.date] = (dayBirds[o.date] || 0) + (o.number || 1);
   });
   const days = Object.keys(dayMap).sort();
-  const peakDay = days.reduce((a, b) => dayMap[a] > dayMap[b] ? a : b, days[0]);
-  const peakCount = dayMap[peakDay];
+  // Peak day = day with most birds counted
+  const peakDay = days.reduce((a, b) => dayBirds[a] > dayBirds[b] ? a : b, days[0]);
+  const peakCount = dayBirds[peakDay];
 
   // By hour
   const hourMap = {};
@@ -471,8 +479,8 @@ function render(obs, dateAfter, dateBefore) {
     data: {
       labels: allDates.map(fmt),
       datasets: [{
-        label: 'Waarnemingen',
-        data: allDates.map((d) => dayMap[d] || 0),
+        label: 'Vogels geteld',
+        data: allDates.map((d) => dayBirds[d] || 0),
         backgroundColor: allDates.map((d) =>
           d === peakDay ? '#f59e0b' : 'rgba(13,148,136,0.65)'
         ),
@@ -483,7 +491,11 @@ function render(obs, dateAfter, dateBefore) {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: {
         title: (items) => items[0].label,
-        label: (item) => ` ${item.raw} waarneming${item.raw !== 1 ? 'en' : ''}`,
+        label: (item) => {
+          const nBirds = item.raw;
+          const nObs = dayMap[allDates[item.dataIndex]] || 0;
+          return ` ${nBirds} vogel${nBirds !== 1 ? 's' : ''} (${nObs} waarneming${nObs !== 1 ? 'en' : ''})`;
+        },
       }}},
       scales: {
         x: { ticks: { maxTicksLimit: 10, font: { size: 10 } }, grid: { display: false } },
@@ -560,17 +572,29 @@ function render(obs, dateAfter, dateBefore) {
     </div>
   `;
 
-  // -- Recent table -----------------------------------------------------------
-  const recent50 = obs.slice(0, 50);
-  $('#obs-table-body').innerHTML = recent50.map((o, i) => `
+  // -- Recent table (sorted latest first by date+time) -------------------------
+  const recent50 = [...obs].sort((a, b) => {
+    const da = (a.date || '') + 'T' + (a.time || '00:00:00');
+    const db = (b.date || '') + 'T' + (b.time || '00:00:00');
+    return db.localeCompare(da);
+  }).slice(0, 50);
+  $('#obs-table-body').innerHTML = recent50.map((o, i) => {
+    const mapsUrl = o.lat && o.lng
+      ? `https://www.google.com/maps?q=${o.lat},${o.lng}`
+      : null;
+    const locCell = mapsUrl
+      ? `<a href="${mapsUrl}" target="_blank" style="color:var(--teal-dk);text-decoration:none" title="Open in Google Maps">${o.location}</a>`
+      : o.location;
+    return `
     <tr class="obs-row ${i % 2 === 0 ? 'even' : ''}">
       <td style="white-space:nowrap">${fmt(o.date)} ${o.time ? o.time.substring(0,5) : ''}</td>
-      <td>${o.location}</td>
+      <td>${locCell}</td>
       <td style="text-align:center;font-weight:700;color:var(--teal)">${o.number}</td>
       <td>${o.observer}</td>
       <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.notes}">${o.notes || '\u2014'}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // --- Fly to location ---------------------------------------------------------
