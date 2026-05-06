@@ -7,10 +7,10 @@ export default async function handler(req, res) {
   const today = new Date();
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
   const pad = (n) => String(n).padStart(2, '0');
-  const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  const dateAfter  = req.query.date_after  || fmt(thirtyDaysAgo);
-  const dateBefore = req.query.date_before || fmt(today);
+  const dateAfter  = req.query.date_after  || fmtDate(thirtyDaysAgo);
+  const dateBefore = req.query.date_before || fmtDate(today);
 
   const BASE = 'https://observation.org/api/v1/observations/';
   const HEADERS = {
@@ -18,9 +18,10 @@ export default async function handler(req, res) {
     'User-Agent': 'IJsvogel-Dashboard/1.0',
   };
   const PAGE_SIZE = 100;
-  const MAX_PAGES = 3; // 300 observations max
+  // Chunk size: split the date range into CHUNK_DAYS-day windows fetched in parallel.
+  // A single-day query resolves in ~8s; chunking keeps each slice well under 30s.
+  const CHUNK_DAYS = 5;
 
-  // No AbortController — rely on Vercel maxDuration (30s in vercel.json)
   const fetchPage = async (url) => {
     const resp = await fetch(url, { headers: HEADERS });
     if (!resp.ok) throw new Error(`API error ${resp.status}`);
@@ -28,27 +29,34 @@ export default async function handler(req, res) {
   };
 
   try {
-    // species_id=37 is an indexed filter for Alcedo atthis (IJsvogel / Common Kingfisher).
-    // This is faster than search=alcedo+atthis which does an expensive full-text scan.
-    const firstUrl = `${BASE}?species_id=37&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}`;
-    const firstPage = await fetchPage(firstUrl);
-    let allResults = firstPage.results || [];
+    // Build date chunks: [dateAfter, dateAfter+5), [dateAfter+5, dateAfter+10), ...
+    const startMs = new Date(dateAfter).getTime();
+    const endMs   = new Date(dateBefore).getTime();
+    const chunkMs = CHUNK_DAYS * 24 * 60 * 60 * 1000;
+    const chunks  = [];
+    for (let ms = startMs; ms < endMs; ms += chunkMs) {
+      chunks.push({
+        after:  fmtDate(new Date(ms)),
+        before: fmtDate(new Date(Math.min(ms + chunkMs, endMs))),
+      });
+    }
 
-    // Calculate how many additional pages exist (up to MAX_PAGES total)
-    const total = firstPage.count || 0;
-    const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
+    // Fetch all chunks in parallel — each is a short date window so it responds fast
+    const chunkResults = await Promise.all(
+      chunks.map((c) =>
+        fetchPage(
+          `${BASE}?species_id=37&limit=${PAGE_SIZE}&country=NL` +
+          `&date_after=${c.after}&date_before=${c.before}`
+        )
+      )
+    );
 
-    // Fetch remaining pages in parallel
-    if (totalPages > 1) {
-      const pageUrls = [];
-      for (let p = 2; p <= totalPages; p++) {
-        const offset = (p - 1) * PAGE_SIZE;
-        pageUrls.push(`${BASE}?species_id=37&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}&offset=${offset}`);
-      }
-      const pages = await Promise.all(pageUrls.map(fetchPage));
-      for (const page of pages) {
-        allResults = allResults.concat(page.results || []);
-      }
+    // Aggregate results and sum totals across chunks
+    let allResults = [];
+    let total = 0;
+    for (const page of chunkResults) {
+      allResults = allResults.concat(page.results || []);
+      total += page.count || 0;
     }
 
     const slim = allResults.map((o) => ({
