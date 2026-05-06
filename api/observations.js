@@ -18,11 +18,11 @@ export default async function handler(req, res) {
     'User-Agent': 'IJsvogel-Dashboard/1.0',
   };
   const PAGE_SIZE = 100;
-  const MAX_PAGES = 2; // 200 observations max — keeps function well under Vercel's 10s limit
+  const MAX_PAGES = 3; // 300 observations max
 
   const fetchPage = async (url) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8s per-request timeout
+    const timeout = setTimeout(() => controller.abort(), 25000); // 25s — vercel.json maxDuration is 30s
     try {
       const resp = await fetch(url, { headers: HEADERS, signal: controller.signal });
       if (!resp.ok) throw new Error(`API error ${resp.status}`);
