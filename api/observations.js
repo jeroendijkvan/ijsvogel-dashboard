@@ -1,5 +1,4 @@
 // Vercel serverless function — proxies observation.org API for IJsvogel (species 37)
-// Simplified: single-page fetch only (no pagination) to stay within Vercel Hobby 10s limit
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -13,19 +12,52 @@ export default async function handler(req, res) {
   const dateAfter  = req.query.date_after  || fmt(thirtyDaysAgo);
   const dateBefore = req.query.date_before || fmt(today);
 
-  // Fetch a single page of up to 100 recent observations — no pagination,
-  // so we comfortably stay within Vercel Hobby's 10 s function limit.
-  const url = `https://observation.org/api/v1/observations/?species=37&limit=100&country=NL&date_after=${dateAfter}&date_before=${dateBefore}&ordering=-date`;
+  const BASE = 'https://observation.org/api/v1/observations/';
+  const HEADERS = {
+    Accept: 'application/json',
+    'User-Agent': 'IJsvogel-Dashboard/1.0',
+  };
+  const PAGE_SIZE = 100;
+  const MAX_PAGES = 5; // 500 observations max — keeps function well under 10s
+
+  const fetchPage = async (url) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000); // 6s per-request timeout
+    try {
+      const resp = await fetch(url, { headers: HEADERS, signal: controller.signal });
+      if (!resp.ok) throw new Error(`API error ${resp.status}`);
+      return await resp.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
 
   try {
-    const resp = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': 'IJsvogel-Dashboard/1.0' },
-    });
-    if (!resp.ok) throw new Error(`API error ${resp.status}`);
-    const json = await resp.json();
-    const results = json.results || [];
+    // Use search=alcedo+atthis to correctly filter for IJsvogel (kingfisher).
+    // Note: the species=37 URL param is silently ignored by the API; the correct
+    // filter is a free-text search on scientific name via the `search` parameter.
+    const firstUrl = `${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}`;
+    const firstPage = await fetchPage(firstUrl);
+    let allResults = firstPage.results || [];
 
-    const slim = results.map((o) => ({
+    // Calculate how many additional pages exist (up to MAX_PAGES total)
+    const total = firstPage.count || 0;
+    const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
+
+    // Fetch remaining pages in parallel
+    if (totalPages > 1) {
+      const pageUrls = [];
+      for (let p = 2; p <= totalPages; p++) {
+        const offset = (p - 1) * PAGE_SIZE;
+        pageUrls.push(`${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL&date_after=${dateAfter}&date_before=${dateBefore}&offset=${offset}`);
+      }
+      const pages = await Promise.all(pageUrls.map(fetchPage));
+      for (const page of pages) {
+        allResults = allResults.concat(page.results || []);
+      }
+    }
+
+    const slim = allResults.map((o) => ({
       id:          o.id,
       date:        o.date,
       time:        o.time,
@@ -40,7 +72,7 @@ export default async function handler(req, res) {
     }));
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
-    return res.json({ ok: true, count: slim.length, total: json.count, dateAfter, dateBefore, observations: slim });
+    return res.json({ ok: true, count: slim.length, total, dateAfter, dateBefore, observations: slim });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
