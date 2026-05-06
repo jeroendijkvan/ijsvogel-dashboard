@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IJsvogel Dashboard â Vogelobservaties Nederland</title>
+  <title>IJsvogel Dashboard &#8212; Vogelobservaties Nederland</title>
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
@@ -13,7 +13,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
   <style>
-    /* ââ Design tokens âââââââââââââââââââââââââââââââ */
+    /* -- Design tokens ------------------------------- */
     :root {
       --teal:    #0d9488;
       --teal-lt: #99f6e4;
@@ -31,7 +31,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    /* ââ Header âââââââââââââââââââââââââââââââââââââ */
+    /* -- Header ------------------------------------- */
     header {
       background: linear-gradient(135deg, var(--teal-dk) 0%, var(--teal) 60%, #0891b2 100%);
       color: #fff;
@@ -53,10 +53,10 @@
     .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #86efac; animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-    /* ââ Layout âââââââââââââââââââââââââââââââââââââ */
+    /* -- Layout ------------------------------------- */
     .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; }
 
-    /* ââ Stat cards âââââââââââââââââââââââââââââââââ */
+    /* -- Stat cards --------------------------------- */
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
     .stat-card {
       background: var(--card); border: 1px solid var(--border);
@@ -66,31 +66,33 @@
     .stat-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
     .stat-value { font-size: 2rem; font-weight: 800; color: var(--text); line-height: 1.1; }
     .stat-sub   { font-size: .78rem; color: #64748b; }
-    .stat-card.accent { background: var(--teal); border-color: var(--teal-dk); }
+    .stat-card.accent { background: linear-gradient(135deg, var(--teal-dk) 0%, var(--teal) 100%); border-color: var(--teal-dk); }
     .stat-card.accent .stat-label { color: #99f6e4; }
     .stat-card.accent .stat-value { color: #fff; }
     .stat-card.accent .stat-sub   { color: #ccfbf1; }
 
-    /* ââ Main grid ââââââââââââââââââââââââââââââââââ */
+    /* -- Main grid ---------------------------------- */
     .main-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1.25rem; margin-bottom: 1.25rem; }
     @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
 
-    /* ââ Card shared ââââââââââââââââââââââââââââââââ */
+    /* -- Card shared -------------------------------- */
     .card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 16px; padding: 1.25rem;
-      box-shadow: var(--shadow);
+      box-shadow: var(--shadow); transition: box-shadow .2s;
     }
+    .card:hover { box-shadow: 0 8px 32px rgba(13,148,136,.18); }
     .card-title {
       font-size: .82rem; font-weight: 700; text-transform: uppercase;
       letter-spacing: .06em; color: var(--teal-dk); margin-bottom: 1rem;
       display: flex; align-items: center; gap: .45rem;
+      padding-bottom: .5rem; border-bottom: 2px solid var(--border);
     }
 
-    /* ââ Map ââââââââââââââââââââââââââââââââââââââââ */
+    /* -- Map ---------------------------------------- */
     #map { height: 480px; border-radius: 10px; z-index: 1; }
 
-    /* ââ Top locations table ââââââââââââââââââââââââ */
+    /* -- Top locations table ------------------------ */
     .locations-list { max-height: 480px; overflow-y: auto; }
     .loc-row {
       display: flex; align-items: center; gap: .7rem;
@@ -107,16 +109,16 @@
     .loc-rank.silver { background: #94a3b8; }
     .loc-rank.bronze { background: #b45309; }
     .loc-name { font-size: .85rem; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .loc-count { font-size: .82rem; font-weight: 700; color: var(--teal); flex-shrink: 0; }
+    .loc-count { font-size: .75rem; font-weight: 700; color: var(--teal-dk); flex-shrink: 0; background: var(--border); border-radius: 99px; padding: .15rem .55rem; }
     .loc-bar-wrap { height: 4px; background: var(--bg); border-radius: 99px; margin-top: .2rem; }
     .loc-bar { height: 4px; background: var(--teal); border-radius: 99px; transition: width .5s; }
 
-    /* ââ Charts grid ââââââââââââââââââââââââââââââââ */
+    /* -- Charts grid -------------------------------- */
     .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
     @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
     .chart-wrap { height: 220px; position: relative; }
 
-    /* ââ Tips section âââââââââââââââââââââââââââââââ */
+    /* -- Tips section ------------------------------- */
     .tips-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
     .tip-card {
       background: var(--card); border: 1px solid var(--border);
@@ -127,7 +129,7 @@
     .tip-text  { font-size: .82rem; color: #475569; line-height: 1.5; }
     .tip-highlight { font-weight: 700; color: var(--teal); }
 
-    /* ââ Loading overlay ââââââââââââââââââââââââââââ */
+    /* -- Loading overlay ---------------------------- */
     #loading {
       position: fixed; inset: 0; background: rgba(240,253,250,.92);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -141,17 +143,24 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading p { color: var(--teal-dk); font-weight: 600; font-size: .95rem; }
 
-    /* ââ Error ââââââââââââââââââââââââââââââââââââââ */
+    /* -- Error -------------------------------------- */
     #error-msg { display: none; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; color: #dc2626; }
 
-    /* ââ Leaflet popup tweak ââââââââââââââââââââââââ */
+    /* -- Leaflet popup tweak ------------------------ */
     .leaflet-popup-content-wrapper { border-radius: 10px !important; box-shadow: 0 4px 16px rgba(0,0,0,.15) !important; }
     .obs-popup { font-family: 'Segoe UI', system-ui, sans-serif; font-size: .83rem; min-width: 180px; }
     .obs-popup strong { color: var(--teal-dk); }
     .obs-popup a { color: var(--sky); text-decoration: none; }
     .obs-popup a:hover { text-decoration: underline; }
 
-    /* ââ Scrollbar ââââââââââââââââââââââââââââââââââ */
+
+    /* -- Obs table rows -- */
+    .obs-row { border-bottom: 1px solid var(--border); transition: background .12s; }
+    .obs-row.even { background: #f8fffd; }
+    .obs-row:hover { background: #ecfdf5 !important; }
+    .obs-row td { padding: .45rem .75rem; }
+
+    /* -- Scrollbar ---------------------------------- */
     ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 99px; }
   </style>
@@ -161,15 +170,15 @@
 <!-- Loading -->
 <div id="loading">
   <div class="spinner"></div>
-  <p>IJsvogel-waarnemingen ophalenâ¦</p>
+  <p>IJsvogel-waarnemingen ophalen&#8230;</p>
 </div>
 
 <!-- Header -->
 <header>
-  <div class="header-icon">ð¦</div>
+  <div class="header-icon">&#128038;</div>
   <div>
     <h1>IJsvogel Dashboard</h1>
-    <p>Common Kingfisher Â· <em>Alcedo atthis</em> Â· Nederland</p>
+    <p>Common Kingfisher &#183; <em>Alcedo atthis</em> &#183; Nederland</p>
   </div>
   <div class="header-meta">
     <div class="live-badge"><span class="live-dot"></span>Live data</div>
@@ -180,33 +189,33 @@
 <div class="container">
 
   <!-- Error -->
-  <div id="error-msg">â ï¸ <span id="error-text"></span></div>
+  <div id="error-msg">&#9888;&#65039; <span id="error-text"></span></div>
 
   <!-- Stats -->
   <div class="stats-grid">
     <div class="stat-card accent">
       <span class="stat-label">Waarnemingen</span>
-      <span class="stat-value" id="stat-obs">â</span>
+      <span class="stat-value" id="stat-obs">&#8212;</span>
       <span class="stat-sub">in de afgelopen 30 dagen</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Aantal IJsvogels</span>
-      <span class="stat-value" id="stat-birds">â</span>
+      <span class="stat-value" id="stat-birds">&#8212;</span>
       <span class="stat-sub">totaal geteld</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Locaties</span>
-      <span class="stat-value" id="stat-locs">â</span>
+      <span class="stat-value" id="stat-locs">&#8212;</span>
       <span class="stat-sub">unieke plekken</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Drukste dag</span>
-      <span class="stat-value" id="stat-peak-count">â</span>
+      <span class="stat-value" id="stat-peak-count">&#8212;</span>
       <span class="stat-sub" id="stat-peak-date">waarnemingen</span>
     </div>
     <div class="stat-card">
       <span class="stat-label">Beste plek</span>
-      <span class="stat-value" style="font-size:1.1rem;line-height:1.3" id="stat-best">â</span>
+      <span class="stat-value" style="font-size:1.1rem;line-height:1.3" id="stat-best">&#8212;</span>
       <span class="stat-sub" id="stat-best-count"></span>
     </div>
   </div>
@@ -214,11 +223,11 @@
   <!-- Map + Locations -->
   <div class="main-grid">
     <div class="card">
-      <div class="card-title">ðºï¸ Kaart â waarnemingen per locatie</div>
+      <div class="card-title">&#128506;&#65039; Kaart &#8212; waarnemingen per locatie</div>
       <div id="map"></div>
     </div>
     <div class="card">
-      <div class="card-title">ð Top locaties</div>
+      <div class="card-title">&#127942; Top locaties</div>
       <div class="locations-list" id="locations-list"></div>
     </div>
   </div>
@@ -226,18 +235,18 @@
   <!-- Charts -->
   <div class="charts-grid">
     <div class="card">
-      <div class="card-title">ð Waarnemingen per dag</div>
+      <div class="card-title">&#128197; Waarnemingen per dag</div>
       <div class="chart-wrap"><canvas id="chart-timeline"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-title">ð Tijdstip van de dag</div>
+      <div class="card-title">&#128336; Tijdstip van de dag</div>
       <div class="chart-wrap"><canvas id="chart-hour"></canvas></div>
     </div>
   </div>
 
   <!-- Tips -->
   <div class="card" style="margin-bottom:1.25rem">
-    <div class="card-title">ð¡ Tips â IJsvogel spotten</div>
+    <div class="card-title">&#128161; Tips &#8212; IJsvogel spotten</div>
     <div class="tips-grid" id="tips-grid">
       <!-- Filled dynamically -->
     </div>
@@ -245,7 +254,7 @@
 
   <!-- Recent observations table -->
   <div class="card">
-    <div class="card-title">ð Recente waarnemingen</div>
+    <div class="card-title">&#128269; Recente waarnemingen</div>
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:.82rem">
         <thead>
@@ -268,14 +277,14 @@
 </div><!-- /container -->
 
 <script>
-// âââ Utilities âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Utilities -------------------------------------------------------------
 const $ = (sel) => document.querySelector(sel);
 const fmt = (d) => {
   const [y, m, day] = d.split('-');
   return `${day}-${m}-${y}`;
 };
 
-// âââ Colour scale for circle markers ââââââââââââââââââââââââââââââââââââââââ
+// --- Colour scale for circle markers ----------------------------------------
 function markerColor(count) {
   if (count >= 5) return '#f59e0b';
   if (count >= 3) return '#0d9488';
@@ -285,10 +294,10 @@ function markerRadius(count) {
   return Math.min(6 + count * 2, 22);
 }
 
-// âââ Map init âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Map init ---------------------------------------------------------------
 const map = L.map('map', { center: [52.2, 5.3], zoom: 7.5 });
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; <a href="https://carto.com/">Carto</a> | Â© OpenStreetMap contributors',
+  attribution: '&copy; <a href="https://carto.com/">Carto</a> | \u00A9 OpenStreetMap contributors',
   maxZoom: 18,
 }).addTo(map);
 
@@ -299,18 +308,18 @@ legend.onAdd = () => {
   d.style.cssText = 'background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px;line-height:1.7';
   d.innerHTML = `
     <b style="color:#134e4a">Aantal IJsvogels</b><br>
-    <span style="color:#0ea5e9">â</span> 1â2&nbsp;&nbsp;
-    <span style="color:#0d9488">â</span> 3â4&nbsp;&nbsp;
-    <span style="color:#f59e0b">â</span> 5+
+    <span style="color:#0ea5e9">\u25CF</span> 1\u20132&nbsp;&nbsp;
+    <span style="color:#0d9488">\u25CF</span> 3\u20134&nbsp;&nbsp;
+    <span style="color:#f59e0b">\u25CF</span> 5+
   `;
   return d;
 };
 legend.addTo(map);
 
-// âââ Chart instances âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Chart instances ---------------------------------------------------------
 let timelineChart, hourChart;
 
-// âââ Main data load ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Main data load ----------------------------------------------------------
 async function loadData() {
   try {
     // Compute 30-day window
@@ -327,7 +336,7 @@ async function loadData() {
     if (!data.ok) throw new Error(data.error || 'Unknown error');
 
     $('#loading').style.display = 'none';
-    $('#date-range').textContent = `${fmt(dateAfter)} â ${fmt(dateBefore)}`;
+    $('#date-range').textContent = `${fmt(dateAfter)} \u2013 ${fmt(dateBefore)}`;
 
     render(data.observations, dateAfter, dateBefore);
   } catch (err) {
@@ -337,7 +346,7 @@ async function loadData() {
   }
 }
 
-// âââ Render everything ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Render everything --------------------------------------------------------
 function render(obs, dateAfter, dateBefore) {
   if (!obs || obs.length === 0) {
     $('#error-msg').style.display = 'block';
@@ -345,7 +354,7 @@ function render(obs, dateAfter, dateBefore) {
     return;
   }
 
-  // ââ Aggregations ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Aggregations ----------------------------------------------------------
   const totalBirds = obs.reduce((s, o) => s + (o.number || 1), 0);
 
   // By location
@@ -379,16 +388,16 @@ function render(obs, dateAfter, dateBefore) {
     if (h !== null) hourMap[h] = (hourMap[h] || 0) + 1;
   });
 
-  // ââ Stats cards ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Stats cards ------------------------------------------------------------
   $('#stat-obs').textContent   = obs.length.toLocaleString('nl-NL');
   $('#stat-birds').textContent = totalBirds.toLocaleString('nl-NL');
   $('#stat-locs').textContent  = uniqueLocs.toLocaleString('nl-NL');
   $('#stat-peak-count').textContent = peakCount;
   $('#stat-peak-date').textContent  = fmt(peakDay);
-  $('#stat-best').textContent = locations[0]?.name?.split(' - ')[0] || 'â';
+  $('#stat-best').textContent = locations[0]?.name?.split(' - ')[0] || '\u2014';
   $('#stat-best-count').textContent = `${locations[0]?.count || 0} vogels`;
 
-  // ââ Map markers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Map markers ------------------------------------------------------------
   const markerLayer = L.layerGroup().addTo(map);
   const bounds = [];
 
@@ -413,8 +422,8 @@ function render(obs, dateAfter, dateBefore) {
         <hr style="margin:.4rem 0;border:none;border-top:1px solid #e2e8f0">
         <b>Recent:</b><br>
         ${recentObs.map(o => `
-          ${fmt(o.date)}${o.time ? ' ' + o.time.substring(0,5) : ''} â ${o.number} ex.
-          ${o.permalink ? `<a href="${o.permalink}" target="_blank">â</a>` : ''}
+          ${fmt(o.date)}${o.time ? ' ' + o.time.substring(0,5) : ''} \u2014 ${o.number} ex.
+          ${o.permalink ? `<a href="${o.permalink}" target="_blank">\u2197</a>` : ''}
         `).join('<br>')}
       </div>
     `;
@@ -426,7 +435,7 @@ function render(obs, dateAfter, dateBefore) {
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
   }
 
-  // ââ Top locations list âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Top locations list -----------------------------------------------------
   const maxCount = locations[0]?.count || 1;
   const topN = locations.slice(0, 25);
   const rankClasses = ['gold', 'silver', 'bronze'];
@@ -440,13 +449,13 @@ function render(obs, dateAfter, dateBefore) {
           <div class="loc-name" title="${loc.name}">${loc.name}</div>
           <div class="loc-bar-wrap"><div class="loc-bar" style="width:${pct}%"></div></div>
         </div>
-        <div class="loc-count">${loc.count} ð¦</div>
+        <div class="loc-count">${loc.count}&nbsp;vogels</div>
       </div>
     `;
   }).join('');
   $('#locations-list').innerHTML = listHtml;
 
-  // ââ Timeline chart âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Timeline chart ---------------------------------------------------------
   const allDates = [];
   const d = new Date(dateAfter);
   const end = new Date(dateBefore);
@@ -483,7 +492,7 @@ function render(obs, dateAfter, dateBefore) {
     }
   });
 
-  // ââ Hour distribution chart ââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Hour distribution chart ------------------------------------------------
   const hours = Array.from({ length: 24 }, (_, i) => i);
   if (hourChart) hourChart.destroy();
   hourChart = new Chart($('#chart-hour'), {
@@ -513,64 +522,64 @@ function render(obs, dateAfter, dateBefore) {
     }
   });
 
-  // ââ Tips section âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Tips section -----------------------------------------------------------
   const bestHour = Object.keys(hourMap).reduce((a, b) =>
     (hourMap[a] || 0) > (hourMap[b] || 0) ? a : b, Object.keys(hourMap)[0]);
   const bestLoc3 = locations.slice(0, 3).map(l => l.name.split(' - ')[0]).join(', ');
 
   $('#tips-grid').innerHTML = `
     <div class="tip-card">
-      <div class="tip-icon">ðºï¸</div>
+      <div class="tip-icon">\uD83D\uDDFA\uFE0F</div>
       <div class="tip-title">Beste locaties nu</div>
       <div class="tip-text">De afgelopen 30 dagen zijn de meeste IJsvogels gezien bij <span class="tip-highlight">${bestLoc3}</span>. Probeer deze plekken als eerste!</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">â°</div>
+      <div class="tip-icon">\u23F0</div>
       <div class="tip-title">Beste tijd van de dag</div>
       <div class="tip-text">De meeste waarnemingen vallen rond <span class="tip-highlight">${bestHour}:00 uur</span>. Oranje balken in de tijdgrafiek tonen piekuren (ochtend & avond). Plan je uitstapje vroeg of laat in de middag.</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð§</div>
+      <div class="tip-icon">\uD83D\uDCA7</div>
       <div class="tip-title">Zoek rustig, helder water</div>
       <div class="tip-text">IJsvogels prefereren <span class="tip-highlight">rustige sloten, beken en kleine rivieren</span> met helder water en uitstekende takjes. Zoek naar waterkanten met weinig mensen en overhangende begroeiing.</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð¨</div>
+      <div class="tip-icon">\uD83C\uDFA8</div>
       <div class="tip-title">Herkennen</div>
       <div class="tip-text">Let op een <span class="tip-highlight">felblauwe rug en oranje borst</span>. In vlucht zie je een snelle, rechte lijn laag over het water. Luister naar het hoge "piep" geluid als hij langsschiet.</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð¸</div>
+      <div class="tip-icon">\uD83D\uDCF8</div>
       <div class="tip-title">Fotografietip</div>
       <div class="tip-text">Ga rustig zitten bij een <span class="tip-highlight">bekende uitkijkpost</span> (een tak boven water) en wacht. Gebruik minimaal <span class="tip-highlight">600mm equivalent</span> en snelle sluitertijden (1/1000s+).</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð</div>
+      <div class="tip-icon">\uD83D\uDCCA</div>
       <div class="tip-title">Statistieken nu</div>
       <div class="tip-text">In de afgelopen 30 dagen zijn <span class="tip-highlight">${obs.length} waarnemingen</span> van in totaal <span class="tip-highlight">${totalBirds} IJsvogels</span> geregistreerd op <span class="tip-highlight">${uniqueLocs} locaties</span> in Nederland.</div>
     </div>
   `;
 
-  // ââ Recent table âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // -- Recent table -----------------------------------------------------------
   const recent50 = obs.slice(0, 50);
   $('#obs-table-body').innerHTML = recent50.map((o, i) => `
-    <tr style="border-bottom:1px solid var(--border);${i % 2 === 0 ? 'background:#f8fffd' : ''}">
-      <td style="padding:.45rem .75rem;white-space:nowrap">${fmt(o.date)} ${o.time ? o.time.substring(0,5) : ''}</td>
-      <td style="padding:.45rem .75rem">${o.location}</td>
-      <td style="padding:.45rem .75rem;text-align:center;font-weight:700;color:var(--teal)">${o.number}</td>
-      <td style="padding:.45rem .75rem">${o.observer}</td>
-      <td style="padding:.45rem .75rem;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.notes}">${o.notes || 'â'}</td>
+    <tr class="obs-row ${i % 2 === 0 ? 'even' : ''}">
+      <td style="white-space:nowrap">${fmt(o.date)} ${o.time ? o.time.substring(0,5) : ''}</td>
+      <td>${o.location}</td>
+      <td style="text-align:center;font-weight:700;color:var(--teal)">${o.number}</td>
+      <td>${o.observer}</td>
+      <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.notes}">${o.notes || '\u2014'}</td>
     </tr>
   `).join('');
 }
 
-// âââ Fly to location âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Fly to location ---------------------------------------------------------
 function flyTo(lat, lng, name, count) {
   if (!lat || !lng) return;
   map.flyTo([lat, lng], 13, { duration: 1 });
 }
 
-// âââ Boot ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// --- Boot --------------------------------------------------------------------
 loadData();
 </script>
 </body>
