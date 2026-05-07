@@ -305,7 +305,7 @@ function markerRadius(count) {
 // --- Map init ---------------------------------------------------------------
 const map = L.map('map', { center: [52.2, 5.3], zoom: 7.5 });
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; <a href="https://carto.com/">Carto</a> | Â© OpenStreetMap contributors',
+  attribution: '&copy; <a href="https://carto.com/">Carto</a> | \u00A9 OpenStreetMap contributors',
   maxZoom: 18,
 }).addTo(map);
 
@@ -316,9 +316,9 @@ legend.onAdd = () => {
   d.style.cssText = 'background:#fff;padding:8px 12px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);font-size:12px;line-height:1.7';
   d.innerHTML = `
     <b style="color:#134e4a">Aantal IJsvogels</b><br>
-    <span style="color:#0ea5e9">â</span> 1â2&nbsp;&nbsp;
-    <span style="color:#0d9488">â</span> 3â4&nbsp;&nbsp;
-    <span style="color:#f59e0b">â</span> 5+
+    <span style="color:#0ea5e9">\u25CF</span> 1\u20132&nbsp;&nbsp;
+    <span style="color:#0d9488">\u25CF</span> 3\u20134&nbsp;&nbsp;
+    <span style="color:#f59e0b">\u25CF</span> 5+
   `;
   return d;
 };
@@ -346,8 +346,8 @@ async function loadData() {
     $('#loading').style.display = 'none';
     const actualDates = [...new Set(data.observations.map(o => o.date))].sort();
     const rangeText = actualDates.length > 1
-      ? `${fmt(actualDates[0])} â ${fmt(actualDates[actualDates.length - 1])}`
-      : `${fmt(dateAfter)} â ${fmt(dateBefore)}`;
+      ? `${fmt(actualDates[0])} \u2013 ${fmt(actualDates[actualDates.length - 1])}`
+      : `${fmt(dateAfter)} \u2013 ${fmt(dateBefore)}`;
     $('#date-range').textContent = rangeText;
 
     render(data.observations, dateAfter, dateBefore, data.total || data.count);
@@ -370,7 +370,7 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
   // -- Aggregations ----------------------------------------------------------
   const totalBirds = obs.reduce((s, o) => s + (o.number || 1), 0);
 
-  // By location â use location_id as primary key to avoid merging distinct
+  // By location \u2014 use location_id as primary key to avoid merging distinct
   // locations that happen to share the same display name
   const locMap = {};
   obs.forEach((o) => {
@@ -414,7 +414,7 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
   $('#stat-locs').textContent       = uniqueLocs.toLocaleString('nl-NL');
   $('#stat-peak-count').textContent = peakCount;
   $('#stat-peak-date').textContent  = fmt(peakDay);
-  $('#stat-best').textContent = locations[0]?.name?.split(' - ')[0] || 'â';
+  $('#stat-best').textContent = locations[0]?.name?.split(' - ')[0] || '\u2014';
   $('#stat-best-count').textContent = `${locations[0]?.count || 0} vogels`;
 
   // -- Map markers ------------------------------------------------------------
@@ -442,8 +442,8 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
         <hr style="margin:.4rem 0;border:none;border-top:1px solid #e2e8f0">
         <b>Recent:</b><br>
         ${recentObs.map(o => `
-          ${fmt(o.date)}${o.time ? ' ' + o.time.substring(0,5) : ''} â ${o.number} ex.
-          ${o.permalink ? `<a href="${o.permalink}" target="_blank">â</a>` : ''}
+          ${fmt(o.date)}${o.time ? ' ' + o.time.substring(0,5) : ''} \u2014 ${o.number} ex.
+          ${o.permalink ? `<a href="${o.permalink}" target="_blank">\u2197</a>` : ''}
         `).join('<br>')}
       </div>
     `;
@@ -555,32 +555,32 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
 
   $('#tips-grid').innerHTML = `
     <div class="tip-card">
-      <div class="tip-icon">ðºï¸</div>
+      <div class="tip-icon">\uD83D\uDDFA\uFE0F</div>
       <div class="tip-title">Beste locaties nu</div>
       <div class="tip-text">De afgelopen 30 dagen zijn de meeste IJsvogels gezien bij <span class="tip-highlight">${esc(bestLoc3)}</span>. Probeer deze plekken als eerste!</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">â°</div>
+      <div class="tip-icon">\u23F0</div>
       <div class="tip-title">Beste tijd van de dag</div>
       <div class="tip-text">De meeste waarnemingen vallen rond <span class="tip-highlight">${bestHour}:00 uur</span>. Oranje balken in de tijdgrafiek tonen piekuren (ochtend &amp; avond). Plan je uitstapje vroeg of laat in de middag.</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð§</div>
+      <div class="tip-icon">\uD83D\uDCA7</div>
       <div class="tip-title">Zoek rustig, helder water</div>
       <div class="tip-text">IJsvogels prefereren <span class="tip-highlight">rustige sloten, beken en kleine rivieren</span> met helder water en uitstekende takjes. Zoek naar waterkanten met weinig mensen en overhangende begroeiing.</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð¨</div>
+      <div class="tip-icon">\uD83C\uDFA8</div>
       <div class="tip-title">Herkennen</div>
       <div class="tip-text">Let op een <span class="tip-highlight">felblauwe rug en oranje borst</span>. In vlucht zie je een snelle, rechte lijn laag over het water. Luister naar het hoge &ldquo;piep&rdquo; geluid als hij langsschiet.</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð¸</div>
+      <div class="tip-icon">\uD83D\uDCF8</div>
       <div class="tip-title">Fotografietip</div>
       <div class="tip-text">Ga rustig zitten bij een <span class="tip-highlight">bekende uitkijkpost</span> (een tak boven water) en wacht. Gebruik minimaal <span class="tip-highlight">600mm equivalent</span> en snelle sluitertijden (1/1000s+).</div>
     </div>
     <div class="tip-card">
-      <div class="tip-icon">ð</div>
+      <div class="tip-icon">\uD83D\uDCCA</div>
       <div class="tip-title">Statistieken nu</div>
       <div class="tip-text">In de afgelopen 30 dagen zijn <span class="tip-highlight">${apiTotal.toLocaleString('nl-NL')} waarnemingen</span> van in totaal <span class="tip-highlight">${scaledBirds.toLocaleString('nl-NL')} IJsvogels</span> geregistreerd op <span class="tip-highlight">${uniqueLocs} locaties</span> in Nederland.</div>
     </div>
@@ -605,7 +605,7 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
       <td>${locCell}</td>
       <td style="text-align:center;font-weight:700;color:var(--teal)">${o.number}</td>
       <td>${esc(o.observer)}</td>
-      <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.notes)}">${esc(o.notes) || 'â'}</td>
+      <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(o.notes)}">${esc(o.notes) || '\u2014'}</td>
     </tr>
   `;
   }).join('');
