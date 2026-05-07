@@ -1,4 +1,4 @@
-// Vercel serverless function — proxies observation.org API for IJsvogel (species 37)
+// Vercel serverless function â proxies observation.org API for IJsvogel (species 37)
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -18,9 +18,7 @@ export default async function handler(req, res) {
     'User-Agent': 'IJsvogel-Dashboard/1.0',
   };
   const PAGE_SIZE = 100;
-  // Split the 30-day window into 5-day parallel chunks.
-  // search=alcedo+atthis on a short date range resolves in ~8-10s;
-  // running them in parallel keeps total response well under 30s.
+  // Chunk size: split the date range into CHUNK_DAYS-day windows fetched in parallel.
   const CHUNK_DAYS = 5;
 
   const fetchPage = async (url) => {
@@ -30,11 +28,13 @@ export default async function handler(req, res) {
   };
 
   try {
-    // Build date chunks: [dateAfter, dateAfter+5), [dateAfter+5, dateAfter+10), ...
     const startMs = new Date(dateAfter).getTime();
     const endMs   = new Date(dateBefore).getTime();
-    const chunkMs = CHUNK_DAYS * 24 * 60 * 60 * 1000;
-    const chunks  = [];
+    const dayMs   = 24 * 60 * 60 * 1000;
+    const chunkMs = CHUNK_DAYS * dayMs;
+
+    // -- 1. Observation sample (for map, table, hourly chart) --
+    const chunks = [];
     for (let ms = startMs; ms < endMs; ms += chunkMs) {
       chunks.push({
         after:  fmtDate(new Date(ms)),
@@ -42,22 +42,47 @@ export default async function handler(req, res) {
       });
     }
 
-    // Fetch all chunks in parallel — each is a short date window so it responds fast
-    const chunkResults = await Promise.all(
-      chunks.map((c) =>
-        fetchPage(
-          `${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL` +
-          `&date_after=${c.after}&date_before=${c.before}`
-        )
-      )
-    );
+    // -- 2. Per-day counts (for accurate timeline chart) --
+    // One lightweight query per day (limit=1) gives us the real count for that day.
+    const dayQueries = [];
+    for (let ms = startMs; ms < endMs; ms += dayMs) {
+      const dayDate = fmtDate(new Date(ms));
+      const nextDay = fmtDate(new Date(ms + dayMs));
+      dayQueries.push({ date: dayDate, before: nextDay });
+    }
 
-    // Aggregate results and sum totals across chunks
+    // Run both sets of queries in parallel
+    const [chunkResults, dayCountResults] = await Promise.all([
+      Promise.all(
+        chunks.map((c) =>
+          fetchPage(
+            `${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL` +
+            `&date_after=${c.after}&date_before=${c.before}`
+          )
+        )
+      ),
+      Promise.all(
+        dayQueries.map((d) =>
+          fetchPage(
+            `${BASE}?search=alcedo+atthis&limit=1&country=NL` +
+            `&date_after=${d.date}&date_before=${d.before}`
+          ).then((page) => ({ date: d.date, count: page.count || 0 }))
+        )
+      ),
+    ]);
+
+    // Aggregate observation sample
     let allResults = [];
     let total = 0;
     for (const page of chunkResults) {
       allResults = allResults.concat(page.results || []);
       total += page.count || 0;
+    }
+
+    // Build accurate daily counts map
+    const dailyCounts = {};
+    for (const { date, count } of dayCountResults) {
+      dailyCounts[date] = count;
     }
 
     const slim = allResults.map((o) => ({
@@ -75,7 +100,15 @@ export default async function handler(req, res) {
     }));
 
     res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=3600');
-    return res.json({ ok: true, count: slim.length, total, dateAfter, dateBefore, observations: slim });
+    return res.json({
+      ok: true,
+      count: slim.length,
+      total,
+      dailyCounts,
+      dateAfter,
+      dateBefore,
+      observations: slim,
+    });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
