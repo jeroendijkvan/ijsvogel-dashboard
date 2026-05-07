@@ -350,7 +350,7 @@ async function loadData() {
       : `${fmt(dateAfter)} \u2013 ${fmt(dateBefore)}`;
     $('#date-range').textContent = rangeText;
 
-    render(data.observations, dateAfter, dateBefore, data.total || data.count);
+    render(data.observations, dateAfter, dateBefore, data.total || data.count, data.dailyCounts || {});
   } catch (err) {
     $('#loading').style.display = 'none';
     $('#error-msg').style.display = 'block';
@@ -359,7 +359,7 @@ async function loadData() {
 }
 
 // --- Render everything --------------------------------------------------------
-function render(obs, dateAfter, dateBefore, apiTotal) {
+function render(obs, dateAfter, dateBefore, apiTotal, dailyCounts) {
   apiTotal = apiTotal || obs.length;
   if (!obs || obs.length === 0) {
     $('#error-msg').style.display = 'block';
@@ -385,16 +385,19 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
   const locations = Object.values(locMap).sort((a, b) => b.count - a.count);
   const uniqueLocs = locations.length;
 
-  // By date
+  // By date â use dailyCounts (accurate per-day totals from API) for the chart
+  // and dayMap/dayBirds from the sample for tooltips and bird estimates
   const dayMap = {};
   const dayBirds = {};
   obs.forEach((o) => {
     dayMap[o.date] = (dayMap[o.date] || 0) + 1;
     dayBirds[o.date] = (dayBirds[o.date] || 0) + (o.number || 1);
   });
-  const days = Object.keys(dayMap).sort();
-  const peakDay = days.reduce((a, b) => dayBirds[a] > dayBirds[b] ? a : b, days[0]);
-  const peakCount = dayBirds[peakDay];
+  // Peak day from accurate daily counts; fall back to sample if dailyCounts missing
+  const dcDays = Object.keys(dailyCounts).filter(d => dailyCounts[d] > 0).sort();
+  const days = dcDays.length > 0 ? dcDays : Object.keys(dayMap).sort();
+  const peakDay = days.reduce((a, b) => (dailyCounts[a] || 0) > (dailyCounts[b] || 0) ? a : b, days[0]);
+  const peakCount = dailyCounts[peakDay] || dayMap[peakDay] || 0;
 
   // By hour
   const hourMap = {};
@@ -493,8 +496,8 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
     data: {
       labels: allDates.map(fmt),
       datasets: [{
-        label: 'Vogels geteld',
-        data: allDates.map((d) => dayBirds[d] || 0),
+        label: 'Waarnemingen',
+        data: allDates.map((d) => dailyCounts[d] || 0),
         backgroundColor: allDates.map((d) =>
           d === peakDay ? '#f59e0b' : 'rgba(13,148,136,0.65)'
         ),
@@ -506,9 +509,8 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
       plugins: { legend: { display: false }, tooltip: { callbacks: {
         title: (items) => items[0].label,
         label: (item) => {
-          const nBirds = item.raw;
-          const nObs = dayMap[allDates[item.dataIndex]] || 0;
-          return ` ${nBirds} vogel${nBirds !== 1 ? 's' : ''} (${nObs} waarneming${nObs !== 1 ? 'en' : ''})`;
+          const nObs = item.raw;
+          return ` ${nObs} waarneming${nObs !== 1 ? 'en' : ''}`;
         },
       }}},
       scales: {
@@ -528,11 +530,7 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
       datasets: [{
         label: 'Waarnemingen',
         data: hours.map((h) => hourMap[h] || 0),
-        backgroundColor: hours.map((h) =>
-          (h >= 6 && h <= 9) || (h >= 16 && h <= 19)
-            ? 'rgba(245,158,11,0.75)'
-            : 'rgba(14,165,233,0.55)'
-        ),
+        backgroundColor: 'rgba(13,148,136,0.65)',
         borderRadius: 3,
       }]
     },
@@ -562,7 +560,7 @@ function render(obs, dateAfter, dateBefore, apiTotal) {
     <div class="tip-card">
       <div class="tip-icon">\u23F0</div>
       <div class="tip-title">Beste tijd van de dag</div>
-      <div class="tip-text">De meeste waarnemingen vallen rond <span class="tip-highlight">${bestHour}:00 uur</span>. Oranje balken in de tijdgrafiek tonen piekuren (ochtend &amp; avond). Plan je uitstapje vroeg of laat in de middag.</div>
+      <div class="tip-text">De meeste waarnemingen vallen rond <span class="tip-highlight">${bestHour}:00 uur</span>. IJsvogels zijn het actiefst in de ochtend en avond. Plan je uitstapje vroeg of laat in de dag.</div>
     </div>
     <div class="tip-card">
       <div class="tip-icon">\uD83D\uDCA7</div>
