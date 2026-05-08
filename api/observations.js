@@ -18,8 +18,9 @@ export default async function handler(req, res) {
     'User-Agent': 'IJsvogel-Dashboard/1.0',
   };
   const PAGE_SIZE = 100;
-  // Chunk size: split the date range into CHUNK_DAYS-day windows fetched in parallel.
   const CHUNK_DAYS = 5;
+  // Max concurrent day-count requests â keeps us well under observation.org rate limits
+  const DAY_BATCH = 3;
 
   const fetchPage = async (url) => {
     const resp = await fetch(url, { headers: HEADERS });
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
     const dayMs   = 24 * 60 * 60 * 1000;
     const chunkMs = CHUNK_DAYS * dayMs;
 
-    // -- 1. Observation sample (for map, table, hourly chart) --
+    // -- 1. Observation sample chunks (6 parallel requests) --
     const chunks = [];
     for (let ms = startMs; ms < endMs; ms += chunkMs) {
       chunks.push({
@@ -42,8 +43,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // -- 2. Per-day counts (for accurate timeline chart) --
-    // One lightweight query per day (limit=1) gives us the real count for that day.
+    // -- 2. Per-day count queries --
     const dayQueries = [];
     for (let ms = startMs; ms < endMs; ms += dayMs) {
       const dayDate = fmtDate(new Date(ms));
@@ -51,25 +51,43 @@ export default async function handler(req, res) {
       dayQueries.push({ date: dayDate, before: nextDay });
     }
 
-    // Run both sets of queries in parallel
-    const [chunkResults, dayCountResults] = await Promise.all([
-      Promise.all(
-        chunks.map((c) =>
-          fetchPage(
-            `${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL` +
-            `&date_after=${c.after}&date_before=${c.before}`
-          )
+    // Start chunk queries immediately (only 6 â fine to run in parallel)
+    const chunkPromise = Promise.all(
+      chunks.map((c) =>
+        fetchPage(
+          `${BASE}?search=alcedo+atthis&limit=${PAGE_SIZE}&country=NL` +
+          `&date_after=${c.after}&date_before=${c.before}`
         )
-      ),
-      Promise.all(
-        dayQueries.map((d) =>
-          fetchPage(
-            `${BASE}?search=alcedo+atthis&limit=1&country=NL` +
-            `&date_after=${d.date}&date_before=${d.before}`
-          ).then((page) => ({ date: d.date, count: page.count || 0 }))
-        )
-      ),
-    ]);
+      )
+    );
+
+    // Day-count queries run concurrently with chunks but internally in small
+    // sequential batches (DAY_BATCH at a time) to avoid rate-limiting.
+    // Each individual query is fault-tolerant: a failure returns count=0 so
+    // a single bad response can never take down the whole dashboard.
+    const dayCountPromise = (async () => {
+      const results = [];
+      for (let i = 0; i < dayQueries.length; i += DAY_BATCH) {
+        const batch = dayQueries.slice(i, i + DAY_BATCH);
+        const batchResults = await Promise.all(
+          batch.map(async (d) => {
+            try {
+              const page = await fetchPage(
+                `${BASE}?search=alcedo+atthis&limit=1&country=NL` +
+                `&date_after=${d.date}&date_before=${d.before}`
+              );
+              return { date: d.date, count: page.count || 0 };
+            } catch {
+              return { date: d.date, count: 0 };
+            }
+          })
+        );
+        results.push(...batchResults);
+      }
+      return results;
+    })();
+
+    const [chunkResults, dayCountResults] = await Promise.all([chunkPromise, dayCountPromise]);
 
     // Aggregate observation sample
     let allResults = [];
